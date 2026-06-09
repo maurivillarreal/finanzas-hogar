@@ -6,6 +6,7 @@ const items = [
   { href: '/dashboard', icono: '🏠', label: 'Inicio' },
   { href: '/gastos', icono: '💸', label: 'Gastos' },
   { href: '/ingresos', icono: '💵', label: 'Ingresos' },
+  { href: '/presupuestos', icono: '🎯', label: 'Metas' },
   { href: '/cuentas', icono: '🏦', label: 'Cuentas' },
 ]
 

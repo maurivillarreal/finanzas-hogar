@@ -24,6 +24,7 @@ export default function Cuentas() {
   const [ajusteDisplay, setAjusteDisplay] = useState('')
   const [ajusteValor, setAjusteValor] = useState('')
   const [ajusteNota, setAjusteNota] = useState('')
+  const [confirmarEliminar, setConfirmarEliminar] = useState(null)
   const [error, setError] = useState('')
 
   const [form, setForm] = useState({
@@ -132,6 +133,13 @@ export default function Cuentas() {
       await cargarCuentas()
     }
     setSaving(false)
+  }
+
+  const handleEliminar = async () => {
+    if (!confirmarEliminar) return
+    await supabase.from('cuentas').update({ activa: false }).eq('id', confirmarEliminar.id)
+    setConfirmarEliminar(null)
+    await cargarCuentas()
   }
 
   if (loading) {
@@ -250,12 +258,41 @@ export default function Cuentas() {
               className="mt-3 w-full py-2 rounded-xl text-xs font-bold text-gray-400 border border-gray-700 hover:border-yellow-400 hover:text-yellow-400 transition-colors">
               ✏️ Ajustar saldo manualmente
             </button>
+            <button
+              onClick={() => setConfirmarEliminar(c)}
+              className="mt-2 w-full py-2 rounded-xl text-xs font-bold text-gray-600 border border-gray-800 hover:border-red-500 hover:text-red-400 transition-colors">
+              🗑️ Eliminar cuenta
+            </button>
           </div>
         ))}
 
       </main>
 
       {/* Modal ajuste de saldo */}
+      {confirmarEliminar && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center px-4 z-50">
+          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-700 w-full max-w-sm space-y-4">
+            <div className="text-center">
+              <p className="text-3xl mb-3">🗑️</p>
+              <p className="font-bold text-lg">¿Eliminar esta cuenta?</p>
+              <p className="text-sm text-gray-400 mt-1">{confirmarEliminar.nombre}</p>
+              <p className="text-sm text-gray-500 mt-1">{confirmarEliminar.banco}</p>
+            </div>
+            <p className="text-xs text-center text-gray-500">Los gastos e ingresos asociados no se van a eliminar</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmarEliminar(null)}
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-gray-800 text-white border border-gray-700 hover:border-gray-500 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={handleEliminar}
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-red-500 text-white hover:bg-red-400 transition-colors">
+                Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {ajustando && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center px-4 z-50">
           <div className="bg-gray-900 rounded-2xl p-6 border border-gray-700 w-full max-w-sm space-y-4">
