@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { formatDinero } from '@/lib/formato'
 
 const TIPOS = {
   caja_ahorro: { label: 'Caja de ahorro', icono: '🏦' },
@@ -18,6 +19,10 @@ export default function Cuentas() {
   const [saving, setSaving] = useState(false)
   const [cuentas, setCuentas] = useState([])
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [ajustando, setAjustando] = useState(null)
+  const [ajusteDisplay, setAjusteDisplay] = useState('')
+  const [ajusteValor, setAjusteValor] = useState('')
+  const [ajusteNota, setAjusteNota] = useState('')
   const [error, setError] = useState('')
 
   const [form, setForm] = useState({
@@ -59,6 +64,18 @@ export default function Cuentas() {
     setSaldoDisplay('$' + numero.toLocaleString('es-AR'))
   }
 
+  const handleAjuste = (e) => {
+    const soloNumeros = e.target.value.replace(/\D/g, '')
+    if (soloNumeros === '') {
+      setAjusteDisplay('')
+      setAjusteValor('')
+      return
+    }
+    const numero = parseInt(soloNumeros, 10)
+    setAjusteValor(numero)
+    setAjusteDisplay('$' + numero.toLocaleString('es-AR'))
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -77,16 +94,40 @@ export default function Cuentas() {
       saldo_inicial: parseFloat(form.saldo_inicial) || 0,
     })
 
-    if (error) {
-      setError('Error al guardar')
-      setSaving(false)
-      return
-    }
+    if (error) { setError('Error al guardar'); setSaving(false); return }
 
     setForm({ nombre: '', banco: '', tipo: 'caja_ahorro', saldo_inicial: '' })
     setSaldoDisplay('')
     setMostrarForm(false)
     await cargarCuentas()
+    setSaving(false)
+  }
+
+  const handleGuardarAjuste = async () => {
+    if (!ajusteValor || !ajustando) return
+    setSaving(true)
+
+    const { error } = await supabase
+      .from('cuentas')
+      .update({ saldo_inicial: parseFloat(ajusteValor) })
+      .eq('id', ajustando.id)
+
+    // Registrar el ajuste como movimiento
+    await supabase.from('movimientos').insert({
+      cuenta_id: ajustando.id,
+      tipo: 'ingreso',
+      monto: parseFloat(ajusteValor),
+      fecha: new Date().toISOString().split('T')[0],
+      notas: ajusteNota || 'Ajuste manual de saldo',
+    })
+
+    if (!error) {
+      setAjustando(null)
+      setAjusteDisplay('')
+      setAjusteValor('')
+      setAjusteNota('')
+      await cargarCuentas()
+    }
     setSaving(false)
   }
 
@@ -104,8 +145,7 @@ export default function Cuentas() {
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <button onClick={() => router.push('/dashboard')} className="text-gray-400 hover:text-white transition-colors">← Volver</button>
           <h1 className="text-lg font-bold text-yellow-400">Cuentas</h1>
-          <button
-            onClick={() => setMostrarForm(!mostrarForm)}
+          <button onClick={() => setMostrarForm(!mostrarForm)}
             className="text-sm bg-yellow-400 text-gray-950 font-bold px-3 py-1.5 rounded-lg hover:bg-yellow-300 transition-colors">
             + Nueva
           </button>
@@ -119,8 +159,6 @@ export default function Cuentas() {
           <div className="bg-gray-900 rounded-2xl p-5 border border-gray-700 space-y-4">
             <p className="text-sm font-bold text-yellow-400">Nueva cuenta</p>
             <form onSubmit={handleSubmit} className="space-y-4">
-
-              {/* Tipo */}
               <div>
                 <label className="block text-sm text-gray-400 mb-2">Tipo</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -137,8 +175,6 @@ export default function Cuentas() {
                   ))}
                 </div>
               </div>
-
-              {/* Nombre */}
               <div>
                 <label className="block text-sm text-gray-400 mb-1.5">Nombre</label>
                 <input type="text" value={form.nombre}
@@ -146,8 +182,6 @@ export default function Cuentas() {
                   placeholder="Ej: Cuenta sueldo"
                   className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 text-sm border border-gray-700 focus:outline-none focus:border-yellow-400 transition-colors" />
               </div>
-
-              {/* Banco */}
               <div>
                 <label className="block text-sm text-gray-400 mb-1.5">
                   {form.tipo === 'tarjeta_credito' ? 'Tarjeta / Emisor' : 'Banco / Entidad'}
@@ -157,8 +191,6 @@ export default function Cuentas() {
                   placeholder={form.tipo === 'tarjeta_credito' ? 'Ej: Visa Galicia' : 'Ej: Banco Galicia'}
                   className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 text-sm border border-gray-700 focus:outline-none focus:border-yellow-400 transition-colors" />
               </div>
-
-              {/* Saldo inicial */}
               <div>
                 <label className="block text-sm text-gray-400 mb-1.5">
                   {form.tipo === 'tarjeta_credito' ? 'Deuda actual' : 'Saldo actual'} <span className="text-gray-600">(opcional)</span>
@@ -167,9 +199,7 @@ export default function Cuentas() {
                   onChange={handleSaldo} placeholder="$0"
                   className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 text-sm border border-gray-700 focus:outline-none focus:border-yellow-400 transition-colors" />
               </div>
-
               {error && <p className="text-red-400 text-sm">{error}</p>}
-
               <div className="flex gap-3">
                 <button type="button" onClick={() => setMostrarForm(false)}
                   className="flex-1 py-3 rounded-xl text-sm font-bold bg-gray-800 text-gray-400 border border-gray-700 hover:border-gray-500 transition-colors">
@@ -180,7 +210,6 @@ export default function Cuentas() {
                   {saving ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>
-
             </form>
           </div>
         )}
@@ -195,24 +224,73 @@ export default function Cuentas() {
         )}
 
         {cuentas.map(c => (
-          <div key={c.id} className="bg-gray-900 rounded-2xl p-5 border border-gray-800 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">{TIPOS[c.tipo]?.icono || '🏦'}</span>
-              <div>
-                <p className="font-bold text-sm">{c.nombre}</p>
-                <p className="text-xs text-gray-400">{c.banco} · {TIPOS[c.tipo]?.label}</p>
+          <div key={c.id} className="bg-gray-900 rounded-2xl p-5 border border-gray-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{TIPOS[c.tipo]?.icono || '🏦'}</span>
+                <div>
+                  <p className="font-bold text-sm">{c.nombre}</p>
+                  <p className="text-xs text-gray-400">{c.banco} · {TIPOS[c.tipo]?.label}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className={`text-sm font-bold ${c.tipo === 'tarjeta_credito' ? 'text-red-400' : 'text-green-400'}`}>
+                  {formatDinero(c.saldo_inicial || 0)}
+                </p>
+                <p className="text-xs text-gray-600">{c.tipo === 'tarjeta_credito' ? 'deuda' : 'saldo'}</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm font-bold text-green-400">
-                ${parseFloat(c.saldo_inicial || 0).toLocaleString('es-AR')}
-              </p>
-              <p className="text-xs text-gray-600">saldo inicial</p>
-            </div>
+
+            {/* Botón ajuste */}
+            <button
+              onClick={() => { setAjustando(c); setAjusteDisplay(''); setAjusteValor(''); setAjusteNota('') }}
+              className="mt-3 w-full py-2 rounded-xl text-xs font-bold text-gray-400 border border-gray-700 hover:border-yellow-400 hover:text-yellow-400 transition-colors">
+              ✏️ Ajustar saldo manualmente
+            </button>
           </div>
         ))}
 
       </main>
+
+      {/* Modal ajuste de saldo */}
+      {ajustando && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center px-4 z-50">
+          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-700 w-full max-w-sm space-y-4">
+            <div className="text-center">
+              <p className="text-3xl mb-2">{TIPOS[ajustando.tipo]?.icono}</p>
+              <p className="font-bold">{ajustando.nombre}</p>
+              <p className="text-sm text-gray-400">Saldo actual: {formatDinero(ajustando.saldo_inicial || 0)}</p>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-1.5">Nuevo saldo</label>
+              <input type="text" inputMode="numeric" value={ajusteDisplay}
+                onChange={handleAjuste} placeholder="$0"
+                className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 text-sm border border-gray-700 focus:outline-none focus:border-yellow-400 transition-colors" />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-1.5">Motivo <span className="text-gray-600">(opcional)</span></label>
+              <input type="text" value={ajusteNota}
+                onChange={e => setAjusteNota(e.target.value)}
+                placeholder="Ej: Intereses del banco"
+                className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 text-sm border border-gray-700 focus:outline-none focus:border-yellow-400 transition-colors" />
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setAjustando(null)}
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-gray-800 text-white border border-gray-700 hover:border-gray-500 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={handleGuardarAjuste} disabled={saving || !ajusteValor}
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-yellow-400 text-gray-950 hover:bg-yellow-300 transition-colors disabled:opacity-50">
+                {saving ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
