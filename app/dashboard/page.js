@@ -30,6 +30,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     const init = async () => {
+      // Registrar service worker
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+      }
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
       setUsuario(session.user)

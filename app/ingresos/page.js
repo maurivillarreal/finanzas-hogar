@@ -17,6 +17,7 @@ export default function Ingresos() {
 
   const hoy = new Date()
   const [filtros, setFiltros] = useState({
+    periodo: 'mes_actual',
     mes: hoy.getMonth() + 1,
     anio: hoy.getFullYear(),
     fuente: '',
@@ -41,9 +42,28 @@ export default function Ingresos() {
   }, [filtros, loading])
 
   const cargarIngresos = async () => {
-    const desde = `${filtros.anio}-${String(filtros.mes).padStart(2, '0')}-01`
+    let desde, hasta
+
     const ultimoDia = new Date(filtros.anio, filtros.mes, 0).getDate()
-const hasta = `${filtros.anio}-${String(filtros.mes).padStart(2, '0')}-${ultimoDia}`
+
+    if (filtros.periodo === 'mes_actual') {
+      desde = `${filtros.anio}-${String(filtros.mes).padStart(2, '0')}-01`
+      hasta = `${filtros.anio}-${String(filtros.mes).padStart(2, '0')}-${ultimoDia}`
+    } else if (filtros.periodo === '3_meses') {
+      const d = new Date(hoy.getFullYear(), hoy.getMonth() - 2, 1)
+      desde = d.toISOString().split('T')[0]
+      hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().split('T')[0]
+    } else if (filtros.periodo === '6_meses') {
+      const d = new Date(hoy.getFullYear(), hoy.getMonth() - 5, 1)
+      desde = d.toISOString().split('T')[0]
+      hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().split('T')[0]
+    } else if (filtros.periodo === 'este_anio') {
+      desde = `${hoy.getFullYear()}-01-01`
+      hasta = `${hoy.getFullYear()}-12-31`
+    } else if (filtros.periodo === 'historico') {
+      desde = '2000-01-01'
+      hasta = '2099-12-31'
+    }
 
     let query = supabase
       .from('ingresos')
@@ -104,17 +124,31 @@ const hasta = `${filtros.anio}-${String(filtros.mes).padStart(2, '0')}-${ultimoD
         <div className="bg-gray-900 rounded-2xl p-4 border border-gray-800 space-y-3">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Filtros</p>
 
-          <select
-            value={`${filtros.mes}-${filtros.anio}`}
-            onChange={e => {
-              const [mes, anio] = e.target.value.split('-')
-              setFiltros(f => ({ ...f, mes: parseInt(mes), anio: parseInt(anio) }))
-            }}
-            className="w-full bg-gray-800 text-white rounded-xl px-4 py-2.5 text-sm border border-gray-700 focus:outline-none focus:border-yellow-400">
-            {mesesDisponibles.map(m => (
-              <option key={`${m.mes}-${m.anio}`} value={`${m.mes}-${m.anio}`}>{m.label}</option>
-            ))}
-          </select>
+          <div className="flex gap-2">
+            <select
+              value={filtros.periodo}
+              onChange={e => setFiltros(f => ({ ...f, periodo: e.target.value }))}
+              className="flex-1 bg-gray-800 text-white rounded-xl px-3 py-2.5 text-sm border border-gray-700 focus:outline-none focus:border-yellow-400">
+              <option value="mes_actual">Este mes</option>
+              <option value="3_meses">Últimos 3 meses</option>
+              <option value="6_meses">Últimos 6 meses</option>
+              <option value="este_anio">Este año</option>
+              <option value="historico">Todo el historial</option>
+            </select>
+            {filtros.periodo === 'mes_actual' && (
+              <select
+                value={`${filtros.mes}-${filtros.anio}`}
+                onChange={e => {
+                  const [mes, anio] = e.target.value.split('-')
+                  setFiltros(f => ({ ...f, mes: parseInt(mes), anio: parseInt(anio) }))
+                }}
+                className="flex-1 bg-gray-800 text-white rounded-xl px-3 py-2.5 text-sm border border-gray-700 focus:outline-none focus:border-yellow-400">
+                {mesesDisponibles.map(m => (
+                  <option key={`${m.mes}-${m.anio}`} value={`${m.mes}-${m.anio}`}>{m.label}</option>
+                ))}
+              </select>
+            )}
+          </div>
 
           <div className="flex gap-2">
             <select
