@@ -1,5 +1,6 @@
 'use client'
 
+import { calcularSaldosCuentas } from '@/lib/saldos'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -44,13 +45,16 @@ export default function Dashboard() {
   }, [router])
 
   const cargarCuentas = async () => {
-    const { data } = await supabase
-      .from('cuentas')
-      .select('*')
-      .eq('activa', true)
-      .order('nombre')
-    setCuentas(data || [])
-  }
+  const { data } = await supabase
+    .from('cuentas')
+    .select('*')
+    .eq('activa', true)
+    .order('nombre')
+
+  if (!data) return
+  const cuentasConSaldo = await calcularSaldosCuentas(data)
+  setCuentas(cuentasConSaldo)
+}
 
   const cargarGastosPorCategoria = async () => {
     const { data } = await supabase
@@ -119,12 +123,12 @@ export default function Dashboard() {
   }
 
   const saldoTotal = cuentas
-    .filter(c => c.tipo !== 'tarjeta_credito')
-    .reduce((acc, c) => acc + parseFloat(c.saldo_inicial || 0), 0)
+  .filter(c => c.tipo !== 'tarjeta_credito')
+  .reduce((acc, c) => acc + parseFloat(c.saldo_real || 0), 0)
 
-  const deudaTotal = cuentas
-    .filter(c => c.tipo === 'tarjeta_credito')
-    .reduce((acc, c) => acc + parseFloat(c.saldo_inicial || 0), 0)
+const deudaTotal = cuentas
+  .filter(c => c.tipo === 'tarjeta_credito')
+  .reduce((acc, c) => acc + parseFloat(c.saldo_real || 0), 0)
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -238,7 +242,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <p className={`font-bold text-sm ${c.tipo === 'tarjeta_credito' ? 'text-red-400' : 'text-green-400'}`}>
-                  {c.tipo === 'tarjeta_credito' ? '-' : ''}{formatDinero(c.saldo_inicial || 0)}
+                  {c.tipo === 'tarjeta_credito' ? '-' : ''}{formatDinero(c.saldo_real || 0)}
                 </p>
               </div>
             ))}

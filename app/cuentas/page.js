@@ -1,5 +1,6 @@
 'use client'
 
+import { calcularSaldosCuentas } from '@/lib/saldos'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -49,7 +50,9 @@ export default function Cuentas() {
       .select('*')
       .eq('activa', true)
       .order('nombre')
-    setCuentas(data || [])
+    if (!data) return
+    const cuentasConSaldo = await calcularSaldosCuentas(data)
+    setCuentas(cuentasConSaldo)
   }
 
   const handleSaldo = (e) => {
@@ -235,7 +238,7 @@ export default function Cuentas() {
               </div>
               <div className="text-right">
                 <p className={`text-sm font-bold ${c.tipo === 'tarjeta_credito' ? 'text-red-400' : 'text-green-400'}`}>
-                  {formatDinero(c.saldo_inicial || 0)}
+                  {formatDinero(c.saldo_real || 0)}
                 </p>
                 <p className="text-xs text-gray-600">{c.tipo === 'tarjeta_credito' ? 'deuda' : 'saldo'}</p>
               </div>
